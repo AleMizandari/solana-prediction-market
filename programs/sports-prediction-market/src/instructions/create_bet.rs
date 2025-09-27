@@ -86,8 +86,14 @@ pub struct CreateBet<'info> {
     )]
     pub bet: Account<'info, Bet>,
 
-    #[account(mut)]
-    pub event_vault: SystemAccount<'info>,
+    /// CHECK: This is the event PDA used as the SOL vault. It is program-owned and
+    /// constrained to equal the `event` PDA via the `constraint` below, which ensures
+    /// it matches the expected address. No further type-level checks are necessary.
+    #[account(
+        mut,
+        constraint = event_vault.key() == event.key() @ Error::InvalidEvent,
+    )]
+    pub event_vault: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }

@@ -98,7 +98,7 @@ describe("sports-prediction-market", () => {
   // Global variables for the betting event
   let eventId: number;
   let eventPDA: PublicKey;
-  let eventVault: Keypair;
+  let eventVault: PublicKey;
 
   it("Creates a betting event: Will Ronaldo be TOP 1 player?", async () => {
     // Use a random event ID to avoid conflicts with previous test runs
@@ -137,11 +137,11 @@ describe("sports-prediction-market", () => {
           feeBps,
           developerFeeBps
         )
-      .accounts({
+        .accounts({
         authority: testWallet.publicKey,
-        feeAccount: feeAccount,
-        developerFeeAccount: developerFeeAccount,
-      })
+          feeAccount: feeAccount,
+          developerFeeAccount: developerFeeAccount,
+        })
         .signers([testWallet])
         .rpc();
 
@@ -179,7 +179,7 @@ describe("sports-prediction-market", () => {
     const vaultAirdropSignature = await provider.connection.requestAirdrop(eventVault, 1 * LAMPORTS_PER_SOL);
     await provider.connection.confirmTransaction(vaultAirdropSignature);
     
-    console.log("Event vault created:", eventVault.toString());
+    console.log("Event vault (event PDA) created:", eventVault.toString());
     console.log("Vault balance:", (await provider.connection.getBalance(eventVault)) / LAMPORTS_PER_SOL, "SOL");
   });
 
@@ -244,8 +244,8 @@ describe("sports-prediction-market", () => {
     const betAmount3 = 0.8 * LAMPORTS_PER_SOL;
     const [betPDA3] = PublicKey.findProgramAddressSync(
       [Buffer.from("bet"), eventPDA.toBuffer(), wallet3.publicKey.toBuffer()],
-      PROGRAM_ID
-    );
+        PROGRAM_ID
+      );
 
     console.log("\nWallet 3 betting 0.8 SOL on 'Yes'...");
     const tx3 = await program.methods
@@ -270,13 +270,13 @@ describe("sports-prediction-market", () => {
     console.log("\nWallet 4 betting 0.4 SOL on 'No'...");
     const tx4 = await program.methods
       .createBet({ winB: {} }, new anchor.BN(betAmount4))
-      .accounts({
+          .accounts({
         authority: wallet4.publicKey,
-        event: eventPDA,
-        eventVault: eventVault,
-      })
+            event: eventPDA,
+            eventVault: eventVault,
+          })
       .signers([wallet4])
-      .rpc();
+          .rpc();
 
     console.log("Wallet 4 bet transaction:", tx4);
 
@@ -337,20 +337,20 @@ describe("sports-prediction-market", () => {
     // Announce winner as "Yes" (WinA)
     console.log("Announcing winner: 'Yes' (WinA)");
     
-    const tx = await program.methods
+      const tx = await program.methods
       .announceWinner({ winA: {} })
-      .accounts({
+        .accounts({
         authority: testWallet.publicKey,
-        event: eventPDA,
-      })
+          event: eventPDA,
+        })
       .signers([testWallet])
-      .rpc();
+        .rpc();
 
     console.log("Winner announcement transaction:", tx);
 
-    // Verify the event outcome
-    const eventAccount = await program.account.event.fetch(eventPDA);
-    expect(eventAccount.outcome).to.deep.equal({ winA: {} });
+      // Verify the event outcome
+      const eventAccount = await program.account.event.fetch(eventPDA);
+      expect(eventAccount.outcome).to.deep.equal({ winA: {} });
 
     console.log("Winner announced successfully!");
     console.log("Event outcome:", eventAccount.outcome);
@@ -424,15 +424,15 @@ describe("sports-prediction-market", () => {
     // Settle Wallet 3's bet (Winner - bet on "Yes")
     console.log("\nSettling Wallet 3's bet (Winner - bet on 'Yes')...");
     const tx3 = await program.methods
-      .settleBet()
-      .accounts({
+          .settleBet()
+          .accounts({
         authority: wallet3.publicKey,
         bet: betPDA3,
-        event: eventPDA,
-        eventVault: eventVault,
-      })
+            event: eventPDA,
+            eventVault: eventVault,
+          })
       .signers([wallet3])
-      .rpc();
+          .rpc();
 
     console.log("Wallet 3 settlement transaction:", tx3);
 
@@ -500,5 +500,198 @@ describe("sports-prediction-market", () => {
     console.log("\n✅ All bets settled successfully!");
     console.log("✅ Winners received their payouts!");
     console.log("✅ Losers received nothing (as expected)!");
+  });
+
+  it("E2E: Ronaldo retires in 1 year market - all wallets bet, Yes wins", async () => {
+    console.log("\n=== NEW MARKET: Will Ronaldo end his career in 1 year? ===");
+
+    // Create a fresh market
+    const newEventId = Math.floor(Math.random() * 1000000) + 2000;
+    const opponentA = "Yes";
+    const opponentB = "No";
+    const feeBps = 300; // 3%
+    const developerFeeBps = 100; // 1%
+
+    const newEventIdBuffer = Buffer.alloc(8);
+    newEventIdBuffer.writeUInt32LE(newEventId, 0);
+    const [newEventPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("event"), newEventIdBuffer],
+      PROGRAM_ID
+    );
+    const newEventVault: PublicKey = newEventPDA;
+
+    const feeAccount = testWallet.publicKey;
+    const developerFeeAccount = testWallet.publicKey;
+
+    console.log("Creating new event:", newEventId);
+    await program.methods
+      .createEvent(new anchor.BN(newEventId), opponentA, opponentB, feeBps, developerFeeBps)
+      .accounts({
+        authority: testWallet.publicKey,
+        feeAccount,
+        developerFeeAccount,
+      })
+      .signers([testWallet])
+      .rpc();
+
+    // Fund event vault for rent and payouts buffer
+    const vaultSig = await provider.connection.requestAirdrop(newEventVault, 1 * LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(vaultSig);
+    console.log("New event vault (event PDA):", newEventVault.toString());
+    console.log("Vault balance:", (await provider.connection.getBalance(newEventVault)) / LAMPORTS_PER_SOL, "SOL");
+
+    // Balances before bets
+    const balancesBeforeBets = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("Balances before bets:");
+    console.log("Wallet 1:", balancesBeforeBets.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesBeforeBets.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesBeforeBets.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesBeforeBets.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Compute bet amounts ~90% of current balance to avoid rent issues
+    const betAmt1 = Math.floor(balancesBeforeBets.wallet1 * 0.9);
+    const betAmt2 = Math.floor(balancesBeforeBets.wallet2 * 0.9);
+    const betAmt3 = Math.floor(balancesBeforeBets.wallet3 * 0.9);
+    const betAmt4 = Math.floor(balancesBeforeBets.wallet4 * 0.9);
+
+    // Create bet PDAs
+    const [newBetPDA1] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), newEventPDA.toBuffer(), wallet1.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [newBetPDA2] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), newEventPDA.toBuffer(), wallet2.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [newBetPDA3] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), newEventPDA.toBuffer(), wallet3.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [newBetPDA4] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), newEventPDA.toBuffer(), wallet4.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+
+    // Place bets: Wallets 1 & 3 on Yes; Wallets 2 & 4 on No
+    console.log("\nPlacing bets: wallets 1 & 3 = Yes, wallets 2 & 4 = No");
+    await program.methods
+      .createBet({ winA: {} }, new anchor.BN(betAmt1))
+      .accounts({ authority: wallet1.publicKey, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet1])
+      .rpc();
+
+    await program.methods
+      .createBet({ winB: {} }, new anchor.BN(betAmt2))
+      .accounts({ authority: wallet2.publicKey, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet2])
+      .rpc();
+
+    await program.methods
+      .createBet({ winA: {} }, new anchor.BN(betAmt3))
+      .accounts({ authority: wallet3.publicKey, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet3])
+      .rpc();
+
+    await program.methods
+      .createBet({ winB: {} }, new anchor.BN(betAmt4))
+      .accounts({ authority: wallet4.publicKey, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet4])
+      .rpc();
+
+    // Balances after betting
+    const balancesAfterBets = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("\nBalances after bets:");
+    console.log("Wallet 1:", balancesAfterBets.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesAfterBets.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesAfterBets.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesAfterBets.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Log event totals
+    const newEventAccount = await program.account.event.fetch(newEventPDA);
+    console.log("\nEvent totals:");
+    console.log("WinA total:", newEventAccount.winAAmount.toNumber() / LAMPORTS_PER_SOL, "SOL");
+    console.log("WinB total:", newEventAccount.winBAmount.toNumber() / LAMPORTS_PER_SOL, "SOL");
+
+    // Announce winner: Yes
+    console.log("\nAnnouncing winner: Yes");
+    await program.methods
+      .announceWinner({ winA: {} })
+      .accounts({ authority: testWallet.publicKey, event: newEventPDA })
+      .signers([testWallet])
+      .rpc();
+
+    // Settle each bet
+    console.log("\nSettling bets...");
+    await program.methods
+      .settleBet()
+      .accounts({ authority: wallet1.publicKey, bet: newBetPDA1, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet1])
+      .rpc();
+
+    await program.methods
+      .settleBet()
+      .accounts({ authority: wallet2.publicKey, bet: newBetPDA2, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet2])
+      .rpc();
+
+    await program.methods
+      .settleBet()
+      .accounts({ authority: wallet3.publicKey, bet: newBetPDA3, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet3])
+      .rpc();
+
+    await program.methods
+      .settleBet()
+      .accounts({ authority: wallet4.publicKey, bet: newBetPDA4, event: newEventPDA, eventVault: newEventVault })
+      .signers([wallet4])
+      .rpc();
+
+    // Balances after settlement
+    const balancesAfterSettlement2 = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("\nFinal balances after settlement:");
+    console.log("Wallet 1:", balancesAfterSettlement2.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesAfterSettlement2.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesAfterSettlement2.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesAfterSettlement2.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Changes during settlement only (showing money flow from losing to winning side)
+    const deltaDuringSettlement = {
+      wallet1: (balancesAfterSettlement2.wallet1 - balancesAfterBets.wallet1) / LAMPORTS_PER_SOL,
+      wallet2: (balancesAfterSettlement2.wallet2 - balancesAfterBets.wallet2) / LAMPORTS_PER_SOL,
+      wallet3: (balancesAfterSettlement2.wallet3 - balancesAfterBets.wallet3) / LAMPORTS_PER_SOL,
+      wallet4: (balancesAfterSettlement2.wallet4 - balancesAfterBets.wallet4) / LAMPORTS_PER_SOL,
+    };
+
+    console.log("\nNet change during settlement (winners positive, losers ~0):");
+    console.log("Wallet 1 (Yes):", deltaDuringSettlement.wallet1);
+    console.log("Wallet 2 (No):", deltaDuringSettlement.wallet2);
+    console.log("Wallet 3 (Yes):", deltaDuringSettlement.wallet3);
+    console.log("Wallet 4 (No):", deltaDuringSettlement.wallet4);
+
+    // Winners (1 and 3) should increase during settlement; Losers (2 and 4) ~0 change
+    expect(deltaDuringSettlement.wallet1).to.be.greaterThan(0);
+    expect(deltaDuringSettlement.wallet3).to.be.greaterThan(0);
+    expect(deltaDuringSettlement.wallet2).to.equal(0);
+    expect(deltaDuringSettlement.wallet4).to.equal(0);
+
+    console.log("\n✅ Market flow validated: Yes side received payouts proportionally.");
   });
 });

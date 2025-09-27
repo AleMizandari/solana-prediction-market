@@ -43,22 +43,19 @@ pub fn settle_bet(
     // Mark bet as settled
     bet.settled = true;
     
-    // Transfer payout if any
-    if payout > 0 {
-        // SOL transfer
-        let transfer_instruction = anchor_lang::system_program::Transfer {
-            from: ctx.accounts.event_vault.to_account_info(),
-            to: ctx.accounts.authority.to_account_info(),
-        };
-        
-        anchor_lang::system_program::transfer(
-            CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
-                transfer_instruction,
-            ),
-            payout,
-        )?;
-    }
+	// Transfer payout if any
+	if payout > 0 {
+		let vault_info = ctx.accounts.event_vault.to_account_info();
+		let authority_info = ctx.accounts.authority.to_account_info();
+
+		// Ensure vault has enough lamports
+		let vault_lamports = vault_info.lamports();
+		require!(vault_lamports >= payout, Error::InsufficientFunds);
+
+		// Move lamports directly (allowed because the program owns the event account)
+		**vault_info.try_borrow_mut_lamports()? -= payout;
+		**authority_info.try_borrow_mut_lamports()? += payout;
+	}
     
     emit!(BetSettled {
         bet: bet.key(),
@@ -90,8 +87,14 @@ pub struct SettleBet<'info> {
     )]
     pub event: Account<'info, Event>,
 
-    #[account(mut)]
-    pub event_vault: SystemAccount<'info>,
+    /// CHECK: This is the event PDA used as the SOL vault. It is program-owned and
+    /// constrained to equal the `event` PDA via the `constraint` below, which ensures
+    /// it matches the expected address. No further type-level checks are necessary.
+    #[account(
+        mut,
+        constraint = event_vault.key() == event.key() @ Error::InvalidEvent,
+    )]
+    pub event_vault: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }

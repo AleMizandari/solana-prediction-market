@@ -28,4 +28,6 @@ pub enum Error {
     InvalidFee,
     #[msg("Invalid string length")]
     InvalidStringLength,
+    #[msg("Insufficient funds in vault")]
+    InsufficientFunds,
 }
