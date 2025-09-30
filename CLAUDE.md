@@ -63,11 +63,12 @@ The smart contract follows Anchor's modular structure:
 
 ### Instruction Flow
 
-1. **create_event**: Creates an event with two opponents, sets 24-hour betting window, stores fee rates
-2. **create_bet**: User places bet on WinA or WinB, transfers SOL to event vault, updates event totals
-3. **announce_winner**: Authority sets the outcome (WinA/WinB/Invalid)
-4. **settle_bet**: Users claim winnings based on proportional payout formula (bet share of winning pool gets proportional share of losing pool minus fees)
-5. **close_event**: Authority closes event and reclaims rent
+1. **create_event**: Creates an event with two opponents, betting is open by default, stores fee rates
+2. **create_bet**: User places bet on WinA or WinB, transfers SOL/tokens to event vault, updates event totals
+3. **close_betting**: Authority manually closes betting (no automatic timeout)
+4. **announce_winner**: Authority sets the outcome (WinA/WinB/Invalid)
+5. **settle_bet**: Users claim winnings based on proportional payout formula (bet share of winning pool gets proportional share of losing pool minus fees)
+6. **close_event**: Authority closes event and reclaims rent
 
 ### Fee Structure
 
@@ -84,12 +85,13 @@ Fees are deducted from the bet amount before calculating the share of the losing
 
 ## Important Constraints
 
-- Betting ends 24 hours after event creation (hardcoded in create_event)
+- Betting must be manually closed by authority using `close_betting` instruction (no automatic timeout)
 - Opponent names limited to 32 characters
 - Fee rates cannot exceed 10000 basis points (100%)
-- Only authority can announce winner
+- Only authority can announce winner and close betting
 - Bets cannot be modified once placed
 - Event must be settled before bets can be settled
+- Betting must be closed before winner can be announced
 
 ## Configuration
 

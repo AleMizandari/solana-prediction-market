@@ -4,7 +4,7 @@ pub mod outcome;
 
 pub use outcome::Outcome;
 
-pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 4 + 8 + 1 + 16 + 16 + 4 + 4 + 1 + 32;
+pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 4 + 1 + 1 + 16 + 16 + 4 + 4 + 1 + 32;
 
 pub const BET_SIZE: usize = 8 + 1 + 32 + 32 + 1 + 8 + 1;
 
@@ -12,7 +12,7 @@ pub const BET_SIZE: usize = 8 + 1 + 32 + 32 + 1 + 8 + 1;
 pub struct Event {
     /// Bump seed used to generate the program address
     pub bump: [u8; 1],
-    /// Authority who can announce the winner
+    /// Authority who can announce the winner and control betting
     pub authority: Pubkey,
     /// Unique event identifier
     pub event_id: u64,
@@ -24,8 +24,8 @@ pub struct Event {
     pub fee_bps: u32,
     /// Developer fee rate in basis points
     pub developer_fee_bps: u32,
-    /// Timestamp when betting closes
-    pub betting_end_time: i64,
+    /// Whether betting is currently open (controlled by authority)
+    pub betting_open: bool,
     /// Outcome of the event
     pub outcome: Outcome,
     /// Total amount bet on opponent A

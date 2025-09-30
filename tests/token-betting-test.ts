@@ -17,7 +17,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
-describe("SPL Token Betting Test", () => {
+describe("SOL and SPL Token Betting Test", () => {
   // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -40,9 +40,14 @@ describe("SPL Token Betting Test", () => {
   let wallet4TokenAccount: PublicKey;
   let eventTokenVault: PublicKey;
 
-  // Event variables
-  let eventId: number;
-  let eventPDA: PublicKey;
+  // SOL Event variables
+  let solEventId: number;
+  let solEventPDA: PublicKey;
+  let solEventVault: PublicKey;
+
+  // SPL Token Event variables
+  let tokenEventId: number;
+  let tokenEventPDA: PublicKey;
 
   before(async () => {
     console.log("\n=== SETUP: Creating Wallets and Custom Token ===");
@@ -205,10 +210,362 @@ describe("SPL Token Betting Test", () => {
     expect(Number(wallet4Balance.amount)).to.equal(amountToMint);
   });
 
+  it("Creates a SOL betting event", async () => {
+    console.log("\n=== CREATING SOL BETTING EVENT ===");
+
+    solEventId = Math.floor(Math.random() * 1000000) + 1000;
+    const opponentA = "Fighter A";
+    const opponentB = "Fighter B";
+    const feeBps = 250; // 2.5% fee
+    const developerFeeBps = 50; // 0.5% developer fee
+
+    // Generate event PDA
+    const eventIdBuffer = Buffer.alloc(8);
+    eventIdBuffer.writeUInt32LE(solEventId, 0);
+    [solEventPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("event"), eventIdBuffer],
+      PROGRAM_ID
+    );
+
+    solEventVault = solEventPDA;
+
+    console.log("SOL Event ID:", solEventId);
+    console.log("SOL Event PDA:", solEventPDA.toString());
+    console.log("Question: Fighter A vs Fighter B (SOL Betting)");
+
+    try {
+      const tx = await program.methods
+        .createEvent(
+          new anchor.BN(solEventId),
+          opponentA,
+          opponentB,
+          feeBps,
+          developerFeeBps,
+          null // null = SOL betting
+        )
+        .accounts({
+          authority: provider.wallet.publicKey,
+          feeAccount: provider.wallet.publicKey,
+          developerFeeAccount: provider.wallet.publicKey,
+        })
+        .rpc();
+
+      console.log("SOL Event created successfully!");
+      console.log("Transaction signature:", tx);
+
+      // Verify the event was created
+      const eventAccount = await program.account.event.fetch(solEventPDA);
+      expect(eventAccount.eventId.toNumber()).to.equal(solEventId);
+      expect(eventAccount.opponentA).to.equal(opponentA);
+      expect(eventAccount.opponentB).to.equal(opponentB);
+      expect(eventAccount.usesSplToken).to.be.false;
+
+      console.log("\nSOL Event details verified:");
+      console.log("- Uses SPL Token:", eventAccount.usesSplToken);
+      console.log("- Fee (bps):", eventAccount.feeBps);
+      console.log("- Developer Fee (bps):", eventAccount.developerFeeBps);
+    } catch (error) {
+      console.error("Failed to create SOL event:", error);
+      throw error;
+    }
+  });
+
+  it("Wallets place bets using SOL", async () => {
+    console.log("\n=== BETTING PHASE WITH SOL ===");
+
+    // Get initial SOL balances
+    const initialBalances = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("Initial SOL balances:");
+    console.log("Wallet 1:", initialBalances.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", initialBalances.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", initialBalances.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", initialBalances.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Bet amounts in lamports
+    const betAmount1 = 0.3 * LAMPORTS_PER_SOL; // 0.3 SOL
+    const betAmount2 = 0.2 * LAMPORTS_PER_SOL; // 0.2 SOL
+    const betAmount3 = 0.5 * LAMPORTS_PER_SOL; // 0.5 SOL
+    const betAmount4 = 0.4 * LAMPORTS_PER_SOL; // 0.4 SOL
+
+    // Wallet 1 bets on Fighter A (WinA)
+    console.log("\nWallet 1 betting 0.3 SOL on Fighter A...");
+    await program.methods
+      .createBet({ winA: {} }, new anchor.BN(betAmount1))
+      .accounts({
+        authority: wallet1.publicKey,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet1.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet1])
+      .rpc();
+
+    console.log("✅ Wallet 1 bet placed");
+
+    // Wallet 2 bets on Fighter B (WinB)
+    console.log("\nWallet 2 betting 0.2 SOL on Fighter B...");
+    await program.methods
+      .createBet({ winB: {} }, new anchor.BN(betAmount2))
+      .accounts({
+        authority: wallet2.publicKey,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet2.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet2])
+      .rpc();
+
+    console.log("✅ Wallet 2 bet placed");
+
+    // Wallet 3 bets on Fighter A (WinA)
+    console.log("\nWallet 3 betting 0.5 SOL on Fighter A...");
+    await program.methods
+      .createBet({ winA: {} }, new anchor.BN(betAmount3))
+      .accounts({
+        authority: wallet3.publicKey,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet3.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet3])
+      .rpc();
+
+    console.log("✅ Wallet 3 bet placed");
+
+    // Wallet 4 bets on Fighter B (WinB)
+    console.log("\nWallet 4 betting 0.4 SOL on Fighter B...");
+    await program.methods
+      .createBet({ winB: {} }, new anchor.BN(betAmount4))
+      .accounts({
+        authority: wallet4.publicKey,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet4.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet4])
+      .rpc();
+
+    console.log("✅ Wallet 4 bet placed");
+
+    // Verify event state after all bets
+    const eventAccount = await program.account.event.fetch(solEventPDA);
+    console.log("\nSOL Event state after all bets:");
+    console.log("- Total bet on Fighter A:", Number(eventAccount.winAAmount) / LAMPORTS_PER_SOL, "SOL");
+    console.log("- Total bet on Fighter B:", Number(eventAccount.winBAmount) / LAMPORTS_PER_SOL, "SOL");
+    console.log("- Number of bets on Fighter A:", eventAccount.winACount);
+    console.log("- Number of bets on Fighter B:", eventAccount.winBCount);
+
+    // Verify balances after betting
+    const balancesAfterBetting = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("\nSOL balances after betting:");
+    console.log("Wallet 1:", balancesAfterBetting.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesAfterBetting.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesAfterBetting.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesAfterBetting.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Verify vault balance
+    const vaultBalance = await provider.connection.getBalance(solEventVault);
+    console.log("SOL Event vault balance:", vaultBalance / LAMPORTS_PER_SOL, "SOL");
+  });
+
+  it("Announces the winner for SOL event: Fighter A wins!", async () => {
+    console.log("\n=== SOL EVENT WINNER ANNOUNCEMENT ===");
+
+    const tx = await program.methods
+      .announceWinner({ winA: {} })
+      .accounts({
+        authority: provider.wallet.publicKey,
+        event: solEventPDA,
+      })
+      .rpc();
+
+    console.log("Winner announcement transaction:", tx);
+
+    // Verify the event outcome
+    const eventAccount = await program.account.event.fetch(solEventPDA);
+    expect(eventAccount.outcome).to.deep.equal({ winA: {} });
+
+    console.log("Winner announced: Fighter A wins!");
+  });
+
+  it("Settles all SOL bets and shows winners/losers", async () => {
+    console.log("\n=== SOL BET SETTLEMENT ===");
+
+    // Get balances before settlement
+    const balancesBeforeSettlement = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("SOL balances before settlement:");
+    console.log("Wallet 1:", balancesBeforeSettlement.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesBeforeSettlement.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesBeforeSettlement.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesBeforeSettlement.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Get bet PDAs
+    const [betPDA1] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), solEventPDA.toBuffer(), wallet1.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [betPDA2] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), solEventPDA.toBuffer(), wallet2.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [betPDA3] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), solEventPDA.toBuffer(), wallet3.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+    const [betPDA4] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bet"), solEventPDA.toBuffer(), wallet4.publicKey.toBuffer()],
+      PROGRAM_ID
+    );
+
+    // Settle all bets
+    console.log("\nSettling Wallet 1's bet (Winner)...");
+    await program.methods
+      .settleBet()
+      .accounts({
+        authority: wallet1.publicKey,
+        bet: betPDA1,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet1.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet1])
+      .rpc();
+
+    console.log("Settling Wallet 2's bet (Loser)...");
+    await program.methods
+      .settleBet()
+      .accounts({
+        authority: wallet2.publicKey,
+        bet: betPDA2,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet2.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet2])
+      .rpc();
+
+    console.log("Settling Wallet 3's bet (Winner)...");
+    await program.methods
+      .settleBet()
+      .accounts({
+        authority: wallet3.publicKey,
+        bet: betPDA3,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet3.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet3])
+      .rpc();
+
+    console.log("Settling Wallet 4's bet (Loser)...");
+    await program.methods
+      .settleBet()
+      .accounts({
+        authority: wallet4.publicKey,
+        bet: betPDA4,
+        event: solEventPDA,
+        eventVault: solEventVault,
+        userTokenAccount: wallet4.publicKey, // Dummy for SOL betting
+        eventTokenVault: solEventPDA, // Dummy for SOL betting
+        tokenMint: solEventPDA, // Dummy for SOL betting
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([wallet4])
+      .rpc();
+
+    // Get balances after settlement
+    const balancesAfterSettlement = {
+      wallet1: await provider.connection.getBalance(wallet1.publicKey),
+      wallet2: await provider.connection.getBalance(wallet2.publicKey),
+      wallet3: await provider.connection.getBalance(wallet3.publicKey),
+      wallet4: await provider.connection.getBalance(wallet4.publicKey),
+    };
+
+    console.log("\n=== SOL EVENT FINAL RESULTS ===");
+    console.log("SOL balances after settlement:");
+    console.log("Wallet 1:", balancesAfterSettlement.wallet1 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 2:", balancesAfterSettlement.wallet2 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 3:", balancesAfterSettlement.wallet3 / LAMPORTS_PER_SOL, "SOL");
+    console.log("Wallet 4:", balancesAfterSettlement.wallet4 / LAMPORTS_PER_SOL, "SOL");
+
+    // Calculate net gains/losses
+    const netResults = {
+      wallet1: (balancesAfterSettlement.wallet1 - balancesBeforeSettlement.wallet1) / LAMPORTS_PER_SOL,
+      wallet2: (balancesAfterSettlement.wallet2 - balancesBeforeSettlement.wallet2) / LAMPORTS_PER_SOL,
+      wallet3: (balancesAfterSettlement.wallet3 - balancesBeforeSettlement.wallet3) / LAMPORTS_PER_SOL,
+      wallet4: (balancesAfterSettlement.wallet4 - balancesBeforeSettlement.wallet4) / LAMPORTS_PER_SOL,
+    };
+
+    console.log("\nNet gains/losses (SOL):");
+    console.log("Wallet 1 (Winner):", netResults.wallet1 > 0 ? "+" : "", netResults.wallet1.toFixed(4), "SOL");
+    console.log("Wallet 2 (Loser):", netResults.wallet2 > 0 ? "+" : "", netResults.wallet2.toFixed(4), "SOL");
+    console.log("Wallet 3 (Winner):", netResults.wallet3 > 0 ? "+" : "", netResults.wallet3.toFixed(4), "SOL");
+    console.log("Wallet 4 (Loser):", netResults.wallet4 > 0 ? "+" : "", netResults.wallet4.toFixed(4), "SOL");
+
+    // Verify winners got more SOL back, losers got nothing
+    expect(netResults.wallet1).to.be.greaterThan(0);
+    expect(netResults.wallet2).to.equal(0);
+    expect(netResults.wallet3).to.be.greaterThan(0);
+    expect(netResults.wallet4).to.equal(0);
+
+    console.log("\n✅ All SOL bets settled successfully!");
+  });
+
   it("Creates a betting event with the custom token", async () => {
     console.log("\n=== CREATING BETTING EVENT WITH CUSTOM TOKEN ===");
 
-    eventId = Math.floor(Math.random() * 1000000) + 1000;
+    tokenEventId = Math.floor(Math.random() * 1000000) + 1000;
     const opponentA = "TeamA";
     const opponentB = "TeamB";
     const feeBps = 300; // 3% fee
@@ -216,8 +573,8 @@ describe("SPL Token Betting Test", () => {
 
     // Generate event PDA
     const eventIdBuffer = Buffer.alloc(8);
-    eventIdBuffer.writeUInt32LE(eventId, 0);
-    [eventPDA] = PublicKey.findProgramAddressSync(
+    eventIdBuffer.writeUInt32LE(tokenEventId, 0);
+    [tokenEventPDA] = PublicKey.findProgramAddressSync(
       [Buffer.from("event"), eventIdBuffer],
       PROGRAM_ID
     );
@@ -227,21 +584,21 @@ describe("SPL Token Betting Test", () => {
       provider.connection,
       mintAuthority,
       tokenMint,
-      eventPDA,
+      tokenEventPDA,
       true // Allow owner to be a PDA
     );
     eventTokenVault = eventTokenVaultInfo.address;
 
-    console.log("Event ID:", eventId);
-    console.log("Event PDA:", eventPDA.toString());
+    console.log("Token Event ID:", tokenEventId);
+    console.log("Token Event PDA:", tokenEventPDA.toString());
     console.log("Event Token Vault:", eventTokenVault.toString());
     console.log("Token Mint:", tokenMint.toString());
-    console.log("Question: TeamA vs TeamB");
+    console.log("Question: TeamA vs TeamB (Token Betting)");
 
     try {
       const tx = await program.methods
         .createEvent(
-          new anchor.BN(eventId),
+          new anchor.BN(tokenEventId),
           opponentA,
           opponentB,
           feeBps,
@@ -255,24 +612,24 @@ describe("SPL Token Betting Test", () => {
         })
         .rpc();
 
-      console.log("Event created successfully!");
+      console.log("Token Event created successfully!");
       console.log("Transaction signature:", tx);
 
       // Verify the event was created
-      const eventAccount = await program.account.event.fetch(eventPDA);
-      expect(eventAccount.eventId.toNumber()).to.equal(eventId);
+      const eventAccount = await program.account.event.fetch(tokenEventPDA);
+      expect(eventAccount.eventId.toNumber()).to.equal(tokenEventId);
       expect(eventAccount.opponentA).to.equal(opponentA);
       expect(eventAccount.opponentB).to.equal(opponentB);
       expect(eventAccount.usesSplToken).to.be.true;
       expect(eventAccount.tokenMint.toString()).to.equal(tokenMint.toString());
 
-      console.log("\nEvent details verified:");
+      console.log("\nToken Event details verified:");
       console.log("- Uses SPL Token:", eventAccount.usesSplToken);
       console.log("- Token Mint:", eventAccount.tokenMint.toString());
       console.log("- Fee (bps):", eventAccount.feeBps);
       console.log("- Developer Fee (bps):", eventAccount.developerFeeBps);
     } catch (error) {
-      console.error("Failed to create event:", error);
+      console.error("Failed to create token event:", error);
       throw error;
     }
   });
@@ -306,8 +663,8 @@ describe("SPL Token Betting Test", () => {
       .createBet({ winA: {} }, new anchor.BN(betAmount1))
       .accounts({
         authority: wallet1.publicKey,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet1TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -326,8 +683,8 @@ describe("SPL Token Betting Test", () => {
       .createBet({ winB: {} }, new anchor.BN(betAmount2))
       .accounts({
         authority: wallet2.publicKey,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet2TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -346,8 +703,8 @@ describe("SPL Token Betting Test", () => {
       .createBet({ winA: {} }, new anchor.BN(betAmount3))
       .accounts({
         authority: wallet3.publicKey,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet3TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -366,8 +723,8 @@ describe("SPL Token Betting Test", () => {
       .createBet({ winB: {} }, new anchor.BN(betAmount4))
       .accounts({
         authority: wallet4.publicKey,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet4TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -381,8 +738,8 @@ describe("SPL Token Betting Test", () => {
     console.log("✅ Wallet 4 bet placed");
 
     // Verify event state after all bets
-    const eventAccount = await program.account.event.fetch(eventPDA);
-    console.log("\nEvent state after all bets:");
+    const eventAccount = await program.account.event.fetch(tokenEventPDA);
+    console.log("\nToken Event state after all bets:");
     console.log("- Total bet on TeamA:", Number(eventAccount.winAAmount) / 1e6, "tokens");
     console.log("- Total bet on TeamB:", Number(eventAccount.winBAmount) / 1e6, "tokens");
     console.log("- Number of bets on TeamA:", eventAccount.winACount);
@@ -412,28 +769,28 @@ describe("SPL Token Betting Test", () => {
     expect(balancesAfterBetting.wallet4).to.equal(initialBalances.wallet4 - betAmount4);
   });
 
-  it("Announces the winner: TeamA wins!", async () => {
-    console.log("\n=== WINNER ANNOUNCEMENT ===");
+  it("Announces the winner for token event: TeamA wins!", async () => {
+    console.log("\n=== TOKEN EVENT WINNER ANNOUNCEMENT ===");
 
     const tx = await program.methods
       .announceWinner({ winA: {} })
       .accounts({
         authority: provider.wallet.publicKey,
-        event: eventPDA,
+        event: tokenEventPDA,
       })
       .rpc();
 
     console.log("Winner announcement transaction:", tx);
 
     // Verify the event outcome
-    const eventAccount = await program.account.event.fetch(eventPDA);
+    const eventAccount = await program.account.event.fetch(tokenEventPDA);
     expect(eventAccount.outcome).to.deep.equal({ winA: {} });
 
-    console.log("Winner announced: TeamA!");
+    console.log("Winner announced: TeamA wins!");
   });
 
-  it("Settles all bets and shows winners/losers", async () => {
-    console.log("\n=== BET SETTLEMENT ===");
+  it("Settles all token bets and shows winners/losers", async () => {
+    console.log("\n=== TOKEN BET SETTLEMENT ===");
 
     // Get balances before settlement
     const balancesBeforeSettlement = {
@@ -451,19 +808,19 @@ describe("SPL Token Betting Test", () => {
 
     // Get bet PDAs
     const [betPDA1] = PublicKey.findProgramAddressSync(
-      [Buffer.from("bet"), eventPDA.toBuffer(), wallet1.publicKey.toBuffer()],
+      [Buffer.from("bet"), tokenEventPDA.toBuffer(), wallet1.publicKey.toBuffer()],
       PROGRAM_ID
     );
     const [betPDA2] = PublicKey.findProgramAddressSync(
-      [Buffer.from("bet"), eventPDA.toBuffer(), wallet2.publicKey.toBuffer()],
+      [Buffer.from("bet"), tokenEventPDA.toBuffer(), wallet2.publicKey.toBuffer()],
       PROGRAM_ID
     );
     const [betPDA3] = PublicKey.findProgramAddressSync(
-      [Buffer.from("bet"), eventPDA.toBuffer(), wallet3.publicKey.toBuffer()],
+      [Buffer.from("bet"), tokenEventPDA.toBuffer(), wallet3.publicKey.toBuffer()],
       PROGRAM_ID
     );
     const [betPDA4] = PublicKey.findProgramAddressSync(
-      [Buffer.from("bet"), eventPDA.toBuffer(), wallet4.publicKey.toBuffer()],
+      [Buffer.from("bet"), tokenEventPDA.toBuffer(), wallet4.publicKey.toBuffer()],
       PROGRAM_ID
     );
 
@@ -474,8 +831,8 @@ describe("SPL Token Betting Test", () => {
       .accounts({
         authority: wallet1.publicKey,
         bet: betPDA1,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet1TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -491,8 +848,8 @@ describe("SPL Token Betting Test", () => {
       .accounts({
         authority: wallet2.publicKey,
         bet: betPDA2,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet2TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -508,8 +865,8 @@ describe("SPL Token Betting Test", () => {
       .accounts({
         authority: wallet3.publicKey,
         bet: betPDA3,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet3TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -525,8 +882,8 @@ describe("SPL Token Betting Test", () => {
       .accounts({
         authority: wallet4.publicKey,
         bet: betPDA4,
-        event: eventPDA,
-        eventVault: eventPDA,
+        event: tokenEventPDA,
+        eventVault: tokenEventPDA,
         userTokenAccount: wallet4TokenAccount,
         eventTokenVault: eventTokenVault,
         tokenMint: tokenMint,
@@ -543,7 +900,7 @@ describe("SPL Token Betting Test", () => {
       wallet4: Number((await getAccount(provider.connection, wallet4TokenAccount)).amount),
     };
 
-    console.log("\n=== FINAL RESULTS ===");
+    console.log("\n=== TOKEN EVENT FINAL RESULTS ===");
     console.log("Token balances after settlement:");
     console.log("Wallet 1:", balancesAfterSettlement.wallet1 / 1e6, "tokens");
     console.log("Wallet 2:", balancesAfterSettlement.wallet2 / 1e6, "tokens");

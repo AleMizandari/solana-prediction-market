@@ -14,11 +14,10 @@ pub fn create_bet(
     // Validate inputs
     require!(amount > 0, Error::ZeroAmount);
     require!(outcome == Outcome::WinA || outcome == Outcome::WinB, Error::InvalidOutcome);
-    
-    // Check if betting period is still open
-    let current_time = Clock::get()?.unix_timestamp;
-    require!(current_time < event.betting_end_time, Error::BettingEnded);
-    
+
+    // Check if betting is currently open (controlled by admin)
+    require!(event.betting_open, Error::BettingClosed);
+
     // Check if event is still undrawn
     require!(event.outcome == Outcome::Undrawn, Error::EventSettled);
     

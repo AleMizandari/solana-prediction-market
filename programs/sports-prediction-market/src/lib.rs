@@ -33,6 +33,12 @@ pub mod sports_prediction_market {
         instructions::create_bet(ctx, outcome, amount)
     }
 
+    pub fn close_betting(
+        ctx: Context<CloseBetting>,
+    ) -> Result<()> {
+        instructions::close_betting(ctx)
+    }
+
     pub fn announce_winner(
         ctx: Context<AnnounceWinner>,
         winner: Outcome,

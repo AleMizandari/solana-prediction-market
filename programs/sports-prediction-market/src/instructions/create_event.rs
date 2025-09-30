@@ -19,9 +19,6 @@ pub fn create_event(
     require!(opponent_a.len() <= 32, Error::InvalidStringLength);
     require!(opponent_b.len() <= 32, Error::InvalidStringLength);
 
-    // Set betting end time to 24 hours from now
-    let betting_end_time = Clock::get()?.unix_timestamp + 86400; // 24 hours
-
     // Determine if using SPL token
     let uses_spl_token = token_mint.is_some();
     let mint_pubkey = if uses_spl_token {
@@ -37,7 +34,7 @@ pub fn create_event(
     event.opponent_b = opponent_b;
     event.fee_bps = fee_bps;
     event.developer_fee_bps = developer_fee_bps;
-    event.betting_end_time = betting_end_time;
+    event.betting_open = true; // Betting is open by default, admin can close it manually
     event.outcome = Outcome::Undrawn;
     event.win_a_amount = 0;
     event.win_b_amount = 0;
@@ -51,7 +48,7 @@ pub fn create_event(
         event_id,
         opponent_a: event.opponent_a.clone(),
         opponent_b: event.opponent_b.clone(),
-        betting_end_time,
+        betting_open: true,
         uses_spl_token,
         token_mint: mint_pubkey,
     });
@@ -89,7 +86,7 @@ pub struct EventCreated {
     pub event_id: u64,
     pub opponent_a: String,
     pub opponent_b: String,
-    pub betting_end_time: i64,
+    pub betting_open: bool,
     pub uses_spl_token: bool,
     pub token_mint: Pubkey,
 }

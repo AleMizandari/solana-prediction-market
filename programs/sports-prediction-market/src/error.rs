@@ -12,8 +12,10 @@ pub enum Error {
     InvalidEvent,
     #[msg("Invalid outcome")]
     InvalidOutcome,
-    #[msg("Betting period has ended")]
-    BettingEnded,
+    #[msg("Betting is closed by admin")]
+    BettingClosed,
+    #[msg("Betting is already closed")]
+    BettingAlreadyClosed,
     #[msg("Bet has already been settled")]
     BetSettled,
     #[msg("Zero amount not allowed")]
