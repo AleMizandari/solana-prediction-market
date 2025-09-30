@@ -22,7 +22,7 @@ describe("interactive-single-bets", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.SportsPredictionMarket as Program<SportsPredictionMarket>;
-  const PROGRAM_ID = new PublicKey("5kmkxnmH5Jg9RfBxPwTughpTsGcSepobKxkK9ufFAXWp");
+  const PROGRAM_ID = new PublicKey("71MzeGyujpPthcwVQ5tC1p2eweBMbF6radaCdaJgsit9");
 
   let wallet1: Keypair;
   let wallet2: Keypair;

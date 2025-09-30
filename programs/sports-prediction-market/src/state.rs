@@ -4,7 +4,7 @@ pub mod outcome;
 
 pub use outcome::Outcome;
 
-pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 4 + 8 + 1 + 16 + 16 + 4 + 4 + 1;
+pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 4 + 8 + 1 + 16 + 16 + 4 + 4 + 1 + 32;
 
 pub const BET_SIZE: usize = 8 + 1 + 32 + 32 + 1 + 8 + 1;
 
@@ -38,6 +38,8 @@ pub struct Event {
     pub win_b_count: u32,
     /// Whether the event uses SPL tokens (false = SOL)
     pub uses_spl_token: bool,
+    /// Token mint address (None for SOL)
+    pub token_mint: Pubkey,
 }
 
 impl Event {

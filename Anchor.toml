@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-sports_prediction_market = "5kmkxnmH5Jg9RfBxPwTughpTsGcSepobKxkK9ufFAXWp"
+sports_prediction_market = "71MzeGyujpPthcwVQ5tC1p2eweBMbF6radaCdaJgsit9"
 
 [registry]
 url = "https://api.apr.dev"

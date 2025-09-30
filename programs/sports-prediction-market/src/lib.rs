@@ -7,7 +7,7 @@ pub mod instructions;
 use state::Outcome;
 use instructions::*;
 
-declare_id!("5kmkxnmH5Jg9RfBxPwTughpTsGcSepobKxkK9ufFAXWp");
+declare_id!("71MzeGyujpPthcwVQ5tC1p2eweBMbF6radaCdaJgsit9");
 
 #[program]
 pub mod sports_prediction_market {
@@ -20,8 +20,9 @@ pub mod sports_prediction_market {
         opponent_b: String,
         fee_bps: u32,
         developer_fee_bps: u32,
+        token_mint: Option<Pubkey>,
     ) -> Result<()> {
-        instructions::create_event(ctx, event_id, opponent_a, opponent_b, fee_bps, developer_fee_bps)
+        instructions::create_event(ctx, event_id, opponent_a, opponent_b, fee_bps, developer_fee_bps, token_mint)
     }
 
     pub fn create_bet(

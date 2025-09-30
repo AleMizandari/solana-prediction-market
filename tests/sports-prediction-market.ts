@@ -20,7 +20,7 @@ describe("sports-prediction-market", () => {
   const program = anchor.workspace.SportsPredictionMarket as Program<SportsPredictionMarket>;
 
   // Program ID from Anchor.toml
-  const PROGRAM_ID = new PublicKey("5kmkxnmH5Jg9RfBxPwTughpTsGcSepobKxkK9ufFAXWp");
+  const PROGRAM_ID = new PublicKey("71MzeGyujpPthcwVQ5tC1p2eweBMbF6radaCdaJgsit9");
 
   // Test wallets
   let wallet1: Keypair;

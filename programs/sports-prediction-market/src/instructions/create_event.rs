@@ -9,18 +9,27 @@ pub fn create_event(
     opponent_b: String,
     fee_bps: u32,
     developer_fee_bps: u32,
+    token_mint: Option<Pubkey>,
 ) -> Result<()> {
     let event = &mut ctx.accounts.event;
-    
+
     // Validate inputs
     require!(fee_bps <= 10000, Error::InvalidFee); // Max 100% fee
     require!(developer_fee_bps <= 10000, Error::InvalidFee); // Max 100% developer fee
     require!(opponent_a.len() <= 32, Error::InvalidStringLength);
     require!(opponent_b.len() <= 32, Error::InvalidStringLength);
-    
+
     // Set betting end time to 24 hours from now
     let betting_end_time = Clock::get()?.unix_timestamp + 86400; // 24 hours
-    
+
+    // Determine if using SPL token
+    let uses_spl_token = token_mint.is_some();
+    let mint_pubkey = if uses_spl_token {
+        token_mint.unwrap()
+    } else {
+        Pubkey::default() // Use default pubkey for SOL
+    };
+
     event.bump = [ctx.bumps.event];
     event.authority = ctx.accounts.authority.key();
     event.event_id = event_id;
@@ -34,16 +43,19 @@ pub fn create_event(
     event.win_b_amount = 0;
     event.win_a_count = 0;
     event.win_b_count = 0;
-    event.uses_spl_token = false; // Default to SOL
-    
+    event.uses_spl_token = uses_spl_token;
+    event.token_mint = mint_pubkey;
+
     emit!(EventCreated {
         event: event.key(),
         event_id,
         opponent_a: event.opponent_a.clone(),
         opponent_b: event.opponent_b.clone(),
         betting_end_time,
+        uses_spl_token,
+        token_mint: mint_pubkey,
     });
-    
+
     Ok(())
 }
 
@@ -78,4 +90,6 @@ pub struct EventCreated {
     pub opponent_a: String,
     pub opponent_b: String,
     pub betting_end_time: i64,
+    pub uses_spl_token: bool,
+    pub token_mint: Pubkey,
 }

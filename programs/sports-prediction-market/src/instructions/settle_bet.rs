@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use anchor_spl::token::{self, Transfer};
 use crate::state::{Event, Bet, Outcome};
 use crate::error::Error;
 
@@ -42,20 +42,44 @@ pub fn settle_bet(
     
     // Mark bet as settled
     bet.settled = true;
-    
-	// Transfer payout if any
-	if payout > 0 {
-		let vault_info = ctx.accounts.event_vault.to_account_info();
-		let authority_info = ctx.accounts.authority.to_account_info();
 
-		// Ensure vault has enough lamports
-		let vault_lamports = vault_info.lamports();
-		require!(vault_lamports >= payout, Error::InsufficientFunds);
+    // Transfer payout if any
+    if payout > 0 {
+        if event.uses_spl_token {
+            // Transfer SPL tokens
+            let event_id_bytes = event.event_id.to_le_bytes();
+            let seeds = &[
+                b"event",
+                event_id_bytes.as_ref(),
+                &[event.bump[0]],
+            ];
+            let signer = &[&seeds[..]];
 
-		// Move lamports directly (allowed because the program owns the event account)
-		**vault_info.try_borrow_mut_lamports()? -= payout;
-		**authority_info.try_borrow_mut_lamports()? += payout;
-	}
+            let cpi_accounts = Transfer {
+                from: ctx.accounts.event_token_vault.to_account_info(),
+                to: ctx.accounts.user_token_account.to_account_info(),
+                authority: event.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer,
+            );
+            token::transfer(cpi_ctx, payout)?;
+        } else {
+            // Transfer SOL
+            let vault_info = ctx.accounts.event_vault.to_account_info();
+            let authority_info = ctx.accounts.authority.to_account_info();
+
+            // Ensure vault has enough lamports
+            let vault_lamports = vault_info.lamports();
+            require!(vault_lamports >= payout, Error::InsufficientFunds);
+
+            // Move lamports directly (allowed because the program owns the event account)
+            **vault_info.try_borrow_mut_lamports()? -= payout;
+            **authority_info.try_borrow_mut_lamports()? += payout;
+        }
+    }
     
     emit!(BetSettled {
         bet: bet.key(),
@@ -95,6 +119,21 @@ pub struct SettleBet<'info> {
         constraint = event_vault.key() == event.key() @ Error::InvalidEvent,
     )]
     pub event_vault: UncheckedAccount<'info>,
+
+    // SPL token accounts (only used if event.uses_spl_token = true)
+    /// CHECK: Validated in instruction logic when uses_spl_token is true
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
+
+    /// CHECK: Validated in instruction logic when uses_spl_token is true
+    #[account(mut)]
+    pub event_token_vault: AccountInfo<'info>,
+
+    /// CHECK: Validated in instruction logic when uses_spl_token is true
+    pub token_mint: AccountInfo<'info>,
+
+    /// CHECK: Validated in instruction logic when uses_spl_token is true
+    pub token_program: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
