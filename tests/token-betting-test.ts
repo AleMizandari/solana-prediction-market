@@ -39,6 +39,7 @@ describe("SOL and SPL Token Betting Test", () => {
   let wallet3TokenAccount: PublicKey;
   let wallet4TokenAccount: PublicKey;
   let eventTokenVault: PublicKey;
+  let platformFeeTokenAccount: PublicKey;
 
   // SOL Event variables
   let solEventId: number;
@@ -240,13 +241,11 @@ describe("SOL and SPL Token Betting Test", () => {
           opponentA,
           opponentB,
           feeBps,
-          developerFeeBps,
           null // null = SOL betting
         )
         .accounts({
           authority: provider.wallet.publicKey,
-          feeAccount: provider.wallet.publicKey,
-          developerFeeAccount: provider.wallet.publicKey,
+          platformFeeAccount: provider.wallet.publicKey,
         })
         .rpc();
 
@@ -464,8 +463,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA1,
         event: solEventPDA,
         eventVault: solEventVault,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet1.publicKey, // Dummy for SOL betting
         eventTokenVault: solEventPDA, // Dummy for SOL betting
+        platformFeeTokenAccount: provider.wallet.publicKey, // Dummy for SOL betting
         tokenMint: solEventPDA, // Dummy for SOL betting
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -481,8 +482,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA2,
         event: solEventPDA,
         eventVault: solEventVault,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet2.publicKey, // Dummy for SOL betting
         eventTokenVault: solEventPDA, // Dummy for SOL betting
+        platformFeeTokenAccount: provider.wallet.publicKey, // Dummy for SOL betting
         tokenMint: solEventPDA, // Dummy for SOL betting
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -498,8 +501,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA3,
         event: solEventPDA,
         eventVault: solEventVault,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet3.publicKey, // Dummy for SOL betting
         eventTokenVault: solEventPDA, // Dummy for SOL betting
+        platformFeeTokenAccount: provider.wallet.publicKey, // Dummy for SOL betting
         tokenMint: solEventPDA, // Dummy for SOL betting
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -515,8 +520,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA4,
         event: solEventPDA,
         eventVault: solEventVault,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet4.publicKey, // Dummy for SOL betting
         eventTokenVault: solEventPDA, // Dummy for SOL betting
+        platformFeeTokenAccount: provider.wallet.publicKey, // Dummy for SOL betting
         tokenMint: solEventPDA, // Dummy for SOL betting
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -589,6 +596,15 @@ describe("SOL and SPL Token Betting Test", () => {
     );
     eventTokenVault = eventTokenVaultInfo.address;
 
+    // Create platform fee token account
+    const platformFeeInfo = await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      mintAuthority,
+      tokenMint,
+      provider.wallet.publicKey
+    );
+    platformFeeTokenAccount = platformFeeInfo.address;
+
     console.log("Token Event ID:", tokenEventId);
     console.log("Token Event PDA:", tokenEventPDA.toString());
     console.log("Event Token Vault:", eventTokenVault.toString());
@@ -602,13 +618,11 @@ describe("SOL and SPL Token Betting Test", () => {
           opponentA,
           opponentB,
           feeBps,
-          developerFeeBps,
           tokenMint // Pass the token mint as Option<Pubkey>
         )
         .accounts({
           authority: provider.wallet.publicKey,
-          feeAccount: provider.wallet.publicKey,
-          developerFeeAccount: provider.wallet.publicKey,
+          platformFeeAccount: provider.wallet.publicKey,
         })
         .rpc();
 
@@ -833,8 +847,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA1,
         event: tokenEventPDA,
         eventVault: tokenEventPDA,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet1TokenAccount,
         eventTokenVault: eventTokenVault,
+        platformFeeTokenAccount: platformFeeTokenAccount,
         tokenMint: tokenMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
@@ -850,8 +866,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA2,
         event: tokenEventPDA,
         eventVault: tokenEventPDA,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet2TokenAccount,
         eventTokenVault: eventTokenVault,
+        platformFeeTokenAccount: platformFeeTokenAccount,
         tokenMint: tokenMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
@@ -867,8 +885,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA3,
         event: tokenEventPDA,
         eventVault: tokenEventPDA,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet3TokenAccount,
         eventTokenVault: eventTokenVault,
+        platformFeeTokenAccount: platformFeeTokenAccount,
         tokenMint: tokenMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
@@ -884,8 +904,10 @@ describe("SOL and SPL Token Betting Test", () => {
         bet: betPDA4,
         event: tokenEventPDA,
         eventVault: tokenEventPDA,
+        platformFeeAccount: provider.wallet.publicKey,
         userTokenAccount: wallet4TokenAccount,
         eventTokenVault: eventTokenVault,
+        platformFeeTokenAccount: platformFeeTokenAccount,
         tokenMint: tokenMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })

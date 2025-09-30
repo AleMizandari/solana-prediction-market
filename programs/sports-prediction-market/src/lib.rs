@@ -19,10 +19,9 @@ pub mod sports_prediction_market {
         opponent_a: String,
         opponent_b: String,
         fee_bps: u32,
-        developer_fee_bps: u32,
         token_mint: Option<Pubkey>,
     ) -> Result<()> {
-        instructions::create_event(ctx, event_id, opponent_a, opponent_b, fee_bps, developer_fee_bps, token_mint)
+        instructions::create_event(ctx, event_id, opponent_a, opponent_b, fee_bps, token_mint)
     }
 
     pub fn create_bet(

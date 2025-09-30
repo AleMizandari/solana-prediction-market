@@ -22,26 +22,64 @@ pub fn settle_bet(
     };
     
     let mut payout = 0u64;
-    
+    let mut platform_fee = 0u64;
+
     if bet.outcome == event.outcome {
         // Winner - calculate proportional payout
         if winning_pool > 0 {
             let bet_amount = bet.amount as u128;
             let fee_amount = (bet_amount * event.fee_bps as u128) / 10000;
-            let developer_fee_amount = (bet_amount * event.developer_fee_bps as u128) / 10000;
-            let net_bet_amount = bet_amount - fee_amount - developer_fee_amount;
-            
+            let net_bet_amount = bet_amount - fee_amount;
+
             // Calculate proportional share of the losing pool
             let share_of_losing_pool = (net_bet_amount * losing_pool) / winning_pool;
             payout = (net_bet_amount + share_of_losing_pool) as u64;
+            platform_fee = fee_amount as u64;
         }
     } else {
         // Loser - no payout
         payout = 0;
     }
-    
+
     // Mark bet as settled
     bet.settled = true;
+
+    // Transfer platform fee if any
+    if platform_fee > 0 {
+        if event.uses_spl_token {
+            // Transfer SPL token fee
+            let event_id_bytes = event.event_id.to_le_bytes();
+            let seeds = &[
+                b"event",
+                event_id_bytes.as_ref(),
+                &[event.bump[0]],
+            ];
+            let signer = &[&seeds[..]];
+
+            let cpi_accounts = Transfer {
+                from: ctx.accounts.event_token_vault.to_account_info(),
+                to: ctx.accounts.platform_fee_token_account.to_account_info(),
+                authority: event.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer,
+            );
+            token::transfer(cpi_ctx, platform_fee)?;
+        } else {
+            // Transfer SOL fee
+            let vault_info = ctx.accounts.event_vault.to_account_info();
+            let platform_fee_info = ctx.accounts.platform_fee_account.to_account_info();
+
+            // Ensure vault has enough lamports for fee
+            let vault_lamports = vault_info.lamports();
+            require!(vault_lamports >= platform_fee, Error::InsufficientFunds);
+
+            **vault_info.try_borrow_mut_lamports()? -= platform_fee;
+            **platform_fee_info.try_borrow_mut_lamports()? += platform_fee;
+        }
+    }
 
     // Transfer payout if any
     if payout > 0 {
@@ -120,6 +158,13 @@ pub struct SettleBet<'info> {
     )]
     pub event_vault: UncheckedAccount<'info>,
 
+    /// CHECK: Platform fee collection account (SOL or SPL token account depending on event type)
+    #[account(
+        mut,
+        constraint = platform_fee_account.key() == event.platform_fee_account @ Error::Unauthorized,
+    )]
+    pub platform_fee_account: UncheckedAccount<'info>,
+
     // SPL token accounts (only used if event.uses_spl_token = true)
     /// CHECK: Validated in instruction logic when uses_spl_token is true
     #[account(mut)]
@@ -128,6 +173,10 @@ pub struct SettleBet<'info> {
     /// CHECK: Validated in instruction logic when uses_spl_token is true
     #[account(mut)]
     pub event_token_vault: AccountInfo<'info>,
+
+    /// CHECK: Platform fee token account (only used if uses_spl_token is true)
+    #[account(mut)]
+    pub platform_fee_token_account: AccountInfo<'info>,
 
     /// CHECK: Validated in instruction logic when uses_spl_token is true
     pub token_mint: AccountInfo<'info>,

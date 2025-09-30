@@ -4,7 +4,7 @@ pub mod outcome;
 
 pub use outcome::Outcome;
 
-pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 4 + 1 + 1 + 16 + 16 + 4 + 4 + 1 + 32;
+pub const EVENT_SIZE: usize = 8 + 1 + 32 + 8 + 64 + 64 + 4 + 32 + 1 + 1 + 16 + 16 + 4 + 4 + 1 + 32;
 
 pub const BET_SIZE: usize = 8 + 1 + 32 + 32 + 1 + 8 + 1;
 
@@ -20,10 +20,10 @@ pub struct Event {
     pub opponent_a: String,
     /// Name of opponent B (e.g., "Fighter B")
     pub opponent_b: String,
-    /// Fee rate in basis points (e.g., 300 = 3%)
+    /// Platform fee rate in basis points (e.g., 300 = 3%)
     pub fee_bps: u32,
-    /// Developer fee rate in basis points
-    pub developer_fee_bps: u32,
+    /// Platform fee collection account
+    pub platform_fee_account: Pubkey,
     /// Whether betting is currently open (controlled by authority)
     pub betting_open: bool,
     /// Outcome of the event

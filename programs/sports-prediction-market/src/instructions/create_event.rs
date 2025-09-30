@@ -8,14 +8,12 @@ pub fn create_event(
     opponent_a: String,
     opponent_b: String,
     fee_bps: u32,
-    developer_fee_bps: u32,
     token_mint: Option<Pubkey>,
 ) -> Result<()> {
     let event = &mut ctx.accounts.event;
 
     // Validate inputs
     require!(fee_bps <= 10000, Error::InvalidFee); // Max 100% fee
-    require!(developer_fee_bps <= 10000, Error::InvalidFee); // Max 100% developer fee
     require!(opponent_a.len() <= 32, Error::InvalidStringLength);
     require!(opponent_b.len() <= 32, Error::InvalidStringLength);
 
@@ -33,7 +31,7 @@ pub fn create_event(
     event.opponent_a = opponent_a;
     event.opponent_b = opponent_b;
     event.fee_bps = fee_bps;
-    event.developer_fee_bps = developer_fee_bps;
+    event.platform_fee_account = ctx.accounts.platform_fee_account.key();
     event.betting_open = true; // Betting is open by default, admin can close it manually
     event.outcome = Outcome::Undrawn;
     event.win_a_amount = 0;
@@ -71,11 +69,9 @@ pub struct CreateEvent<'info> {
     )]
     pub event: Account<'info, Event>,
 
+    /// CHECK: Platform fee collection account
     #[account(mut)]
-    pub fee_account: SystemAccount<'info>,
-
-    #[account(mut)]
-    pub developer_fee_account: SystemAccount<'info>,
+    pub platform_fee_account: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
